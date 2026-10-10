@@ -20,6 +20,8 @@
   --color-status-declined: #dc2626;
   --color-on-status: #ffffff;
   --radius: 8px;
+  /* Design-system typeface (prd.md §8): Inter, with system sans-serif fallbacks. */
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -30,7 +32,7 @@ body {
   margin: 0;
   background: var(--color-canvas);
   color: var(--color-text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -41,8 +43,9 @@ h3 { font-size: 13px; margin: 0 0 6px; text-transform: uppercase; letter-spacing
 
 .muted { color: var(--color-text-muted); }
 .small { font-size: 12px; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
-.num { text-align: right; white-space: nowrap; }
+/* IDs and figures stay in Inter; tabular numerals keep digits aligned in columns. */
+.mono { font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Buttons */
 .btn {
