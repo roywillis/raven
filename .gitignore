@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# build output
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# local configuration and secrets (never commit)
+.env
+.env.*
+!.env.example
+secrets/
+
+# misc
+.DS_Store
+npm-debug.log*
+coverage/
