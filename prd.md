@@ -1,12 +1,13 @@
 # Product Requirement Document (PRD) — Project "Raven"
 **Product Name:** Credit Risk Analyst Reviewer Portal (Raven)  
-**Document Version:** 2.3 (Inter typeface)  
+**Document Version:** 2.4 (credit score removed; data issues out of the UI)  
 **Target Consumer:** Claude Code / Engineering Team  
 **Status:** Approved for Implementation  
 
 ### Change Log
 | Version | Change |
 | --- | --- |
+| 2.4 | `credit_score` removed from the master sheet and the review drawer. Sheet data issues (unreadable rows, duplicate borrower IDs, conflicting reviews) are no longer shown in the portal; they are written to the server logs and reported by `npm run check:sheets`. |
 | 2.3 | Inter adopted as the design-system typeface for all UI text. |
 | 2.2 | Light theme replaces Dark Slate Mode; status indicators are filled pills (no border) in deeper shades so white text stays readable. Review drawer slides in/out; decision notifications are a floating snackbar that auto-dismisses after 5 seconds (paused while hovered) instead of a banner that pushes the list down. |
 | 2.1 | Real master-sheet columns (+ `city`); Raven-owned review log (`raven_reviews`) and user list (`raven_users`); Raven never edits loan terms; Google sign-in limited to pre-registered emails with `analyst` / `viewer` roles; multi-select Province/City filters; one-click Accept with confirmation, remarks mandatory only for Reject; Sulawesi Selatan and Sulawesi Tengah split; DTI and restructuring badge removed (no source columns). |
@@ -28,7 +29,7 @@ The dashboard intercepts borderline loan applications—specifically those evalu
 1. **Tab 1: Incoming Applications (Pending Borderline Review)**
    - Table view displaying pending records: `application_status == 'BORDERLINE_HITL'` ($5.0\% \le PD \le 20.0\%$) with no review recorded yet.
    - Location Filter Bar with **multi-select Province** and **City/Municipality** filters populated from dataset values, plus search by Borrower ID or business name.
-   - Interactive Application Review Drawer showing the borrower's financial profile, credit score, $PD\%$, loan amount granted, tenor and the AI risk note (`decision_notes`).
+   - Interactive Application Review Drawer showing the borrower's financial profile, $PD\%$, loan amount granted, tenor and the AI risk note (`decision_notes`).
    - Action Panel: **Accept** (one click + confirmation, optional remarks) and **Reject** (mandatory remarks).
 
 2. **Tab 2: Historical Applications (View-Only Log)**
@@ -78,7 +79,7 @@ The dashboard intercepts borderline loan applications—specifically those evalu
 +-----------------------------------------------------------------------------------+
 |  REVIEW & ACTION DRAWER (When row is selected)                                   |
 |  -------------------------------------------------------------------------------  |
-|  Applicant: A*** G*** | NIK: 3578****0020 | Credit Score: 670 | PD: 10.00%          |
+|  Applicant: A*** G*** | NIK: 3578****0020 | PD: 10.00%                             |
 |  Loan amount granted: Rp 250.000.000 (12m) | Monthly income: Rp 90.000.000          |
 |  AI Risk Note: Moderate risk. Requires off-take verification.                      |
 |                                                                                   |
@@ -124,7 +125,7 @@ Columns written by the workflow:
 | `borrower_name` | Raw name — masked by Raven, never sent to the browser |
 | `business_name`, `business_type` | |
 | `province`, `city` | `city` added in v2.1 for the City filter |
-| `credit_score`, `tenor_months`, `monthly_income_idr`, `loan_amount_granted` | Never changed by Raven |
+| `tenor_months`, `monthly_income_idr`, `loan_amount_granted` | Never changed by Raven |
 | `application_status` | `BORDERLINE_HITL` / `APPROVED_AUTO` / `DECLINED_AUTO` — never changed by Raven |
 | `pd_score` | Decimal (0.10 = 10%) |
 | `decision_notes` | AI-agent note explaining the borderline categorisation |
@@ -176,7 +177,7 @@ The analyst identity and timestamp are set by the server, never taken from the r
 - **Pending:** `application_status == 'BORDERLINE_HITL'`, no `raven_reviews` row and empty `borderline_final_review_status`.
 - **Accepted:** `APPROVED_AUTO` or final status `APPROVED_HITL`. **Rejected:** `DECLINED_AUTO` or `DECLINED_HITL`.
 - **Write sequence:** (1) re-read; if already decided → HTTP 409 naming who decided and when; (2) append to `raven_reviews` (commit point); (3) update the master row's Raven columns. If (3) fails, the decision stands, the row is flagged "Sync pending" in History and an analyst can run **Re-sync**.
-- Duplicate `borrower_id` rows in the master tab are hidden and reported as data issues.
+- Rows Raven cannot read and duplicate `borrower_id` rows are hidden from the portal. They are not shown in the UI; they are written to the server logs and reported by `npm run check:sheets`.
 
 ---
 

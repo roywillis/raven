@@ -107,7 +107,7 @@ All dependency versions are pinned exactly in `package.json` and locked in `pack
    `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
 4. **Sheet tabs** (row 1 = headers; column order does not matter; names are configurable):
    - `applications`: `borrower_id, nik, borrower_name, business_name, business_type, province, city,
-     credit_score, tenor_months, monthly_income_idr, loan_amount_granted, application_status, pd_score,
+     tenor_months, monthly_income_idr, loan_amount_granted, application_status, pd_score,
      decision_notes, borderline_final_review_status, reviewed_by, reviewed_at, review_remarks, review_id`
      (the n8n workflow must fill `city`; the last five are written by Raven only).
    - `raven_reviews`: `review_id, borrower_id, action, final_status, remarks, analyst_email, decided_at,
@@ -218,7 +218,7 @@ Set `RAVEN_DATA_SOURCE=sheets`, the spreadsheet ID, service-account JSON, OAuth 
 
 Vercel can run several server instances at once, so the in-process lock does not span them. The
 re-read before each decision still rejects most double decisions. If two land within the same moment,
-the earliest one counts and the other is reported as a data issue in the portal.
+the earliest one counts and the other is reported in the server logs.
 
 ## Verification status
 

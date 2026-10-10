@@ -107,7 +107,6 @@ export function ReviewDrawer({ application: app, canDecide, onClose, onDecided }
           <div><dt>NIK</dt><dd>{app.masked_nik}</dd></div>
           <div><dt>Sector</dt><dd>{app.business_type}</dd></div>
           <div><dt>Location</dt><dd>{app.city}, {app.province}</dd></div>
-          <div><dt>Credit score</dt><dd>{app.credit_score}</dd></div>
           <div><dt>PD</dt><dd><span className="badge badge-pending">{app.pd_label}</span></dd></div>
           <div><dt>Monthly income</dt><dd>{formatRupiah(app.monthly_income_idr)}</dd></div>
           <div><dt>Loan amount granted</dt><dd>{formatRupiah(app.loan_amount_granted)} ({app.tenor_months}m)</dd></div>

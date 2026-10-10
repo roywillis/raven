@@ -11,7 +11,6 @@ export const WORKFLOW_COLUMNS = [
   "business_type",
   "province",
   "city",
-  "credit_score",
   "tenor_months",
   "monthly_income_idr",
   "loan_amount_granted",
@@ -47,7 +46,6 @@ export const REVIEW_COLUMNS = [
 export const USER_COLUMNS = ["email", "display_name", "role", "active"] as const;
 
 const NUMERIC_APPLICATION_COLUMNS = [
-  "credit_score",
   "tenor_months",
   "monthly_income_idr",
   "loan_amount_granted",

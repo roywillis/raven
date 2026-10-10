@@ -23,7 +23,6 @@ export interface SheetApplication {
   business_type: string;
   province: string;
   city: string;
-  credit_score: number;
   tenor_months: number;
   monthly_income_idr: number;
   loan_amount_granted: number;
@@ -79,7 +78,6 @@ export interface ApplicationView {
   business_type: string;
   province: string;
   city: string;
-  credit_score: number;
   tenor_months: number;
   monthly_income_idr: number;
   loan_amount_granted: number;
