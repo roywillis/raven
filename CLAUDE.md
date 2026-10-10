@@ -12,10 +12,10 @@ Always read and align with the core project documents before writing code:
    - Read `README.md` to understand repository setup, runtime dependencies, directory structure, and environment variables.
    - Run the exact build, lint, and test commands documented in `README.md`.
 
-2. **`PRD.md` (Feature Specifications):**
-   - Treat `PRD.md` as the authoritative source of truth for scope, functional requirements, and acceptance criteria.
-   - Do NOT implement features or workflows marked as **Out of Scope** or **Non-Goals** in `PRD.md`.
-   - Implement solutions that satisfy the Gherkin scenarios (`Given / When / Then`) defined in `PRD.md`.
+2. **`prd.md` (Feature Specifications):**
+   - Treat `prd.md` as the authoritative source of truth for scope, functional requirements, and acceptance criteria.
+   - Do NOT implement features or workflows marked as **Out of Scope** or **Non-Goals** in `prd.md`.
+   - Implement solutions that satisfy the Gherkin scenarios (`Given / When / Then`) defined in `prd.md`.
 
 ---
 
@@ -32,14 +32,14 @@ When assigned a task, follow this phased approach:
 ### Phase 2: Implementation
 - Implement changes incrementally in logical batches.
 - Adhere strictly to existing coding standards, type systems, and naming conventions.
-- Do NOT introduce unrequested dependencies, heavy libraries, or large architectural refactors unless explicitly stated in `PRD.md`.
+- Do NOT introduce unrequested dependencies, heavy libraries, or large architectural refactors unless explicitly stated in `prd.md`.
 - Keep modifications minimal and focused strictly on the assigned scope.
 
 ### Phase 3: Verification & Quality Gate
 Before signaling task completion:
 - Run the project's build and lint checks (as specified in `README.md`).
 - Run the automated test suite.
-- Write unit or integration tests for newly introduced logic and edge cases covered in `PRD.md`.
+- Write unit or integration tests for newly introduced logic and edge cases covered in `prd.md`.
 - Ensure all tests pass with zero warnings or runtime errors.
 
 ---
