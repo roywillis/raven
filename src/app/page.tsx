@@ -1,15 +1,44 @@
-/**
- * PLACEHOLDER shell. Tabs, filter bar, tables and the review drawer (prd.md §3) are not built yet.
- */
-export default function HomePage() {
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/auth/session";
+import { ReviewPortal } from "@/components/ReviewPortal";
+import type { QueueView } from "@/domain/types";
+import { getReviewService } from "@/services/review-service";
+
+export const dynamic = "force-dynamic";
+
+async function loadQueue(): Promise<{ queue: QueueView } | { error: string }> {
+  try {
+    return { queue: await getReviewService().getQueue() };
+  } catch (error) {
+    console.error("[raven] failed to load applications:", error);
+    return {
+      error:
+        error instanceof Error && error.name === "SheetSchemaError"
+          ? error.message
+          : "The data source is unavailable. Please retry shortly.",
+    };
+  }
+}
+
+export default async function HomePage() {
+  const user = await getSessionUser();
+  if (!user) redirect("/signin");
+
+  const result = await loadQueue();
+  if ("queue" in result) return <ReviewPortal queue={result.queue} user={user} />;
+
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Raven Reviewer Portal</h1>
-      <nav aria-label="Application views" style={{ display: "flex", gap: 16 }}>
-        <span>Tab 1: Incoming Applications</span>
-        <span style={{ color: "var(--color-text-muted)" }}>Tab 2: Historical Applications</span>
-      </nav>
-      <p style={{ color: "var(--color-text-muted)" }}>Scaffold only: views are not implemented yet.</p>
+    <main className="signin">
+      <div className="card signin-card">
+        <h1>Applications could not be loaded</h1>
+        <p className="banner banner-error" role="alert">
+          {result.error}
+        </p>
+        <Link className="btn" href="/">
+          Retry
+        </Link>
+      </div>
     </main>
   );
 }

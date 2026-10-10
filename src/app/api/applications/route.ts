@@ -1,29 +1,16 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createRepositories, NotImplementedError, type HistoricalCategory } from "@/data";
+import { NextResponse } from "next/server";
+import { errorResponse } from "@/auth/http";
+import { requireUser } from "@/auth/session";
+import { getReviewService } from "@/services/review-service";
 
 export const dynamic = "force-dynamic";
 
-const VIEWS = ["incoming", "accepted", "rejected"] as const;
-type View = (typeof VIEWS)[number];
-
-/** GET /api/applications?view=incoming|accepted|rejected (default: incoming). */
-export async function GET(request: NextRequest) {
-  const view = (request.nextUrl.searchParams.get("view") ?? "incoming") as View;
-  if (!VIEWS.includes(view)) {
-    return NextResponse.json({ error: `view must be one of: ${VIEWS.join(", ")}` }, { status: 400 });
-  }
-
+/** GET /api/applications: pending queue plus accepted/rejected history (PII masked). */
+export async function GET() {
   try {
-    const { reader } = createRepositories();
-    const applications =
-      view === "incoming"
-        ? await reader.listIncoming()
-        : await reader.listHistorical(view as HistoricalCategory);
-    return NextResponse.json({ view, applications });
+    await requireUser();
+    return NextResponse.json(await getReviewService().getQueue());
   } catch (error) {
-    if (error instanceof NotImplementedError) {
-      return NextResponse.json({ error: error.message }, { status: 501 });
-    }
-    throw error;
+    return errorResponse(error);
   }
 }

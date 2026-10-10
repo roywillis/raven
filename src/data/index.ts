@@ -1,20 +1,27 @@
-import { loadConfig, type AppConfig } from "@/config/env";
-import { FixtureApplicationRepository } from "./fixture/fixture-repository";
-import type { ApplicationReader, DecisionWriter } from "./ports";
-import { SheetsApplicationRepository } from "./sheets/sheets-repository";
+import { getConfig, type AppConfig } from "@/config/env";
+import { FixtureRepository } from "./fixture/fixture-repository";
+import type { Repositories } from "./ports";
+import { createSheetsClient } from "./sheets/client";
+import { SheetsRepository } from "./sheets/sheets-repository";
 
 export * from "./ports";
 
-export interface Repositories {
-  reader: ApplicationReader;
-  writer: DecisionWriter;
+/** Builds the data adapters for the configured data source. Server-side only. */
+export function createRepositories(config: AppConfig): Repositories {
+  if (config.dataSource === "sheets") {
+    const { spreadsheetId, credentials, tabs } = config.sheets!;
+    const repository = new SheetsRepository(createSheetsClient(spreadsheetId, credentials), tabs);
+    return { applications: repository, reviews: repository, users: repository };
+  }
+  const repository = new FixtureRepository();
+  return { applications: repository, reviews: repository, users: repository };
 }
 
-/** Selects the data adapter from configuration. Server-side only. */
-export function createRepositories(config: AppConfig = loadConfig()): Repositories {
-  const repository =
-    config.dataSource === "sheets"
-      ? new SheetsApplicationRepository(config.sheets!)
-      : new FixtureApplicationRepository();
-  return { reader: repository, writer: repository };
+// Kept on globalThis so the fixture store survives dev-server hot reloads.
+const holder = globalThis as typeof globalThis & { __ravenRepositories?: Repositories };
+
+/** Process-wide repositories for the current configuration. */
+export function getRepositories(): Repositories {
+  holder.__ravenRepositories ??= createRepositories(getConfig());
+  return holder.__ravenRepositories;
 }

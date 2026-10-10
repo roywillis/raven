@@ -1,33 +1,55 @@
-import { ACCEPTED_STATUSES, PENDING_STATUS, REJECTED_STATUSES } from "@/domain/status";
-import type { ApplicationStatus, DecisionPayload, HistoricalApplication } from "@/domain/types";
-import sampleRows from "../../../fixtures/applications.sample.json";
-import {
-  NotImplementedError,
-  type ApplicationReader,
-  type DecisionWriter,
-  type HistoricalCategory,
-} from "../ports";
+import type { RavenUser, ReviewRecord, SheetApplication } from "@/domain/types";
+import sampleApplications from "../../../fixtures/applications.sample.json";
+import sampleUsers from "../../../fixtures/users.sample.json";
+import type { ApplicationReader, ApplicationsSnapshot, ReviewStore, UserDirectory } from "../ports";
 
-const HISTORICAL_STATUSES: Record<HistoricalCategory, readonly ApplicationStatus[]> = {
-  accepted: ACCEPTED_STATUSES,
-  rejected: REJECTED_STATUSES,
-};
+/**
+ * In-memory adapter over the bundled, fictional sample data, for local development and tests.
+ * Decisions are kept in memory and reset when the process restarts.
+ */
+export class FixtureRepository implements ApplicationReader, ReviewStore, UserDirectory {
+  private readonly applications: SheetApplication[];
+  private readonly reviews: ReviewRecord[] = [];
+  private readonly users: RavenUser[];
 
-/** In-memory adapter over the bundled, fictional sample rows. For local development and tests. */
-export class FixtureApplicationRepository implements ApplicationReader, DecisionWriter {
-  constructor(private readonly rows: HistoricalApplication[] = sampleRows as HistoricalApplication[]) {}
-
-  async listIncoming() {
-    return this.rows.filter((row) => row.application_status === PENDING_STATUS);
+  constructor(
+    applications: SheetApplication[] = sampleApplications as SheetApplication[],
+    users: RavenUser[] = sampleUsers as RavenUser[],
+  ) {
+    this.applications = applications.map((app) => ({ ...app }));
+    this.users = users.map((user) => ({ ...user, email: user.email.toLowerCase() }));
   }
 
-  async listHistorical(category: HistoricalCategory) {
-    const statuses = HISTORICAL_STATUSES[category];
-    return this.rows.filter((row) => statuses.includes(row.application_status));
+  async listApplications(): Promise<ApplicationsSnapshot> {
+    return { applications: this.applications.map((app) => ({ ...app })), errors: [] };
   }
 
-  async submitDecision(_decision: DecisionPayload): Promise<void> {
-    void _decision;
-    throw new NotImplementedError("Decision write-back");
+  async listReviews(): Promise<ReviewRecord[]> {
+    return this.reviews.map((review) => ({ ...review }));
+  }
+
+  async appendReview(review: ReviewRecord): Promise<void> {
+    this.reviews.push({ ...review });
+  }
+
+  async markApplicationReviewed(review: ReviewRecord): Promise<void> {
+    const app = this.applications.find((row) => row.borrower_id === review.borrower_id);
+    if (!app) throw new Error(`No application row for ${review.borrower_id}.`);
+    Object.assign(app, {
+      borderline_final_review_status: review.final_status,
+      reviewed_by: review.analyst_email,
+      reviewed_at: review.decided_at,
+      review_remarks: review.remarks,
+      review_id: review.review_id,
+    });
+  }
+
+  async listUsers(): Promise<RavenUser[]> {
+    return this.users.map((user) => ({ ...user }));
+  }
+
+  async findUser(email: string): Promise<RavenUser | null> {
+    const target = email.trim().toLowerCase();
+    return this.users.find((user) => user.email === target) ?? null;
   }
 }

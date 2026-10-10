@@ -3,16 +3,12 @@
 Raven is a human-in-the-loop (HITL) review dashboard for regional credit risk analysts. It is the manual
 review gateway in an automated MSME credit underwriting pipeline (n8n orchestrator + Python
 micro-services). Borderline applications, with a probability of default (PD) between 5.0% and 20.0%
-(`application_status == 'BORDERLINE_HITL'`), are listed for review. Analysts filter them by
-province and city, inspect the borrower's risk profile, and accept or reject with mandatory remarks.
-Decisions are written back to the master Google Sheet and move to a view-only historical log.
+(`application_status == 'BORDERLINE_HITL'`), are listed for review. Analysts filter them by province and
+city, inspect the borrower's risk profile, and accept (one click + confirm) or reject (with mandatory
+remarks). Each decision is logged in Raven's own review log, mirrored back to the master Google Sheet, and
+shown in a view-only history.
 
-The product requirements are in [`prd.md`](prd.md); agent working conventions are in
-[`CLAUDE.md`](CLAUDE.md).
-
-> **Status: scaffold only.** The project structure, configuration, data-access interfaces and a
-> sample-data adapter exist. The UI views, decision workflow and live Google Sheets integration are
-> not implemented yet (see [What is not implemented](#what-is-not-implemented)).
+Product requirements: [`prd.md`](prd.md) (v2.1). Agent working conventions: [`CLAUDE.md`](CLAUDE.md).
 
 ## Tech stack
 
@@ -21,70 +17,75 @@ The product requirements are in [`prd.md`](prd.md); agent working conventions ar
 | Runtime | Node.js 22 (≥ 22.12), npm ≥ 11.20 |
 | Framework | Next.js 16.3.8 (App Router), React 19.3.0 |
 | Language | TypeScript 5.9.3 (strict) |
+| Auth | next-auth 4.24.15 (Google sign-in, JWT sessions) |
+| Google Sheets | Sheets REST API v4 via `google-auth-library` 11.1.0 (service account) |
 | Tests | Vitest 5.0.2 |
 | Lint | ESLint 9.39.5 with `eslint-config-next` 16.3.8 |
-| Data store | Google Sheets (master sheet, read and write-back), integration pending |
 
 All dependency versions are pinned exactly in `package.json` and locked in `package-lock.json`.
+
+## How it works
+
+```
+                    ┌──────────── one Google Sheet ────────────┐
+ n8n workflow ────► │ applications   (master; Raven writes only │
+                    │                 its 5 review columns)     │
+                    │ raven_reviews  (Raven-owned, append-only) │ ◄──── Raven (service account)
+                    │ raven_users    (pre-registered users)     │
+                    └───────────────────────────────────────────┘
+```
+
+- **Pending** = `application_status == BORDERLINE_HITL` and no review logged yet.
+- **Deciding** (`POST /api/decisions`): re-read → reject with 409 if already decided → append to
+  `raven_reviews` (commit point) → update the master row's `borderline_final_review_status`,
+  `reviewed_by`, `reviewed_at`, `review_remarks`, `review_id`. Loan terms are never changed.
+- If the master-row update fails, the decision still stands; History shows **Sync pending** and an analyst
+  can click **Re-sync now** (`POST /api/admin/resync`).
+- Raw `nik` and `borrower_name` are masked on the server and never reach the browser.
+- Every page and API requires an active session; decisions require the `analyst` role.
 
 ## Folder structure
 
 ```
 .
-├── CLAUDE.md                       # Agent working conventions
-├── prd.md                          # Product requirements (source of truth)
+├── CLAUDE.md                        # Agent working conventions
+├── prd.md                           # Product requirements (source of truth)
 ├── README.md
-├── .env.example                    # Template for local config (copy to .env.local)
-├── .gitignore                      # Ignores .env*, secrets/, build output
-├── .nvmrc                          # Node major version (22)
+├── .env.example                     # Template for local config (copy to .env.local)
+├── .gitignore                       # Ignores .env*, secrets/, build output
+├── .nvmrc                           # Node major version (22)
 ├── eslint.config.mjs
 ├── next.config.ts
 ├── package.json / package-lock.json
 ├── tsconfig.json
 ├── vitest.config.mts
 ├── fixtures/
-│   └── applications.sample.json    # Fictional, pre-masked sample rows (3 pending, 2 decided)
+│   ├── applications.sample.json     # Fictional sample rows in the real sheet columns
+│   └── users.sample.json            # Sample users (analyst, viewer, deactivated)
 ├── src/
-│   ├── app/                        # Next.js App Router
-│   │   ├── layout.tsx
-│   │   ├── page.tsx                # Placeholder shell (tabs not built)
-│   │   ├── globals.css             # PRD §8 palette as CSS variables
+│   ├── proxy.ts                     # Sign-in gate for all pages and APIs (Next 16 "proxy")
+│   ├── app/
+│   │   ├── layout.tsx, globals.css, icon.svg
+│   │   ├── page.tsx                 # Portal (server-loads the queue for the signed-in user)
+│   │   ├── signin/page.tsx
 │   │   └── api/
-│   │       ├── applications/route.ts   # GET ?view=incoming|accepted|rejected
-│   │       └── decisions/route.ts      # POST placeholder, returns 501
-│   ├── config/
-│   │   └── env.ts                  # Loads and validates environment configuration (server-only)
-│   ├── domain/
-│   │   ├── types.ts                # PRD §5 payload types
-│   │   └── status.ts               # Status constants and ACCEPT/REJECT → status map
-│   └── data/                       # Data-access layer
-│       ├── ports.ts                # ApplicationReader / DecisionWriter interfaces
-│       ├── index.ts                # createRepositories(): picks adapter from config
-│       ├── fixture/
-│       │   └── fixture-repository.ts   # In-memory adapter over fixtures/
-│       └── sheets/
-│           ├── sheets-repository.ts    # Google Sheets adapter (placeholder, throws NotImplementedError)
-│           └── column-map.ts           # Field → sheet header mapping (placeholder)
-└── tests/
-    ├── config.test.ts
-    └── repositories.test.ts
+│   │       ├── auth/[...nextauth]/route.ts
+│   │       ├── applications/route.ts    # GET queue + history (masked)
+│   │       ├── decisions/route.ts       # POST decision (analyst only)
+│   │       └── admin/resync/route.ts    # POST re-sync master rows (analyst only)
+│   ├── auth/                        # next-auth options, session/role checks, error responses
+│   ├── components/                  # Portal UI: tabs, filters, drawer, history, sign-in
+│   ├── config/env.ts                # Loads and validates environment configuration
+│   ├── domain/                      # Types, statuses, masking, review rules, filters (pure logic)
+│   ├── services/review-service.ts   # Decision workflow, duplicate protection, re-sync
+│   ├── types/next-auth.d.ts
+│   └── data/                        # Data-access layer
+│       ├── ports.ts                 # ApplicationReader / ReviewStore / UserDirectory interfaces
+│       ├── index.ts                 # Picks the adapter from RAVEN_DATA_SOURCE
+│       ├── fixture/                 # In-memory adapter over fixtures/ (local dev, tests)
+│       └── sheets/                  # Google Sheets adapter: REST client, header mapping, schema
+└── tests/                           # Vitest unit and route tests
 ```
-
-### Data-access design
-
-UI code and route handlers depend only on the two interfaces in `src/data/ports.ts`:
-
-- `ApplicationReader`: `listIncoming()` and `listHistorical("accepted" | "rejected")`
-- `DecisionWriter`: `submitDecision(decision)`
-
-`createRepositories()` in `src/data/index.ts` selects the implementation from `RAVEN_DATA_SOURCE`:
-
-- `fixture` (default): `FixtureApplicationRepository`, backed by `fixtures/applications.sample.json`.
-- `sheets`: `SheetsApplicationRepository`, which reads from and writes back to the same spreadsheet
-  (`GOOGLE_SHEETS_SPREADSHEET_ID`). Every method currently throws `NotImplementedError`, which the
-  API turns into HTTP 501.
-
-Credentials are read only on the server (route handlers), never in client components.
 
 ## Prerequisites
 
@@ -94,64 +95,85 @@ Credentials are read only on the server (route handlers), never in client compon
   ```bash
   npm install -g npm@11.20.0
   ```
-- **For the later Google Sheets integration** (not needed to run the scaffold):
-  1. A Google Cloud project with the **Google Sheets API** enabled.
-  2. A **service account** and its JSON key. Save it as `secrets/google-service-account.json`
-     (the `secrets/` folder is git-ignored).
-  3. Share the master Google Sheet with the service account's email address as **Editor**.
-  4. Note the spreadsheet ID from the sheet URL: `https://docs.google.com/spreadsheets/d/<ID>/edit`.
 
-  A Google **API key alone is not enough**: API keys can only read publicly shared sheets and cannot
-  write. `GOOGLE_SHEETS_API_KEY` is kept as an optional read-only setting.
+### Google setup (for the real sheet and Google sign-in)
+
+1. **Google Cloud project** with the **Google Sheets API** enabled.
+2. **Service account** (for reading and writing the sheet): create one, create a JSON key, and share the
+   spreadsheet with the service account's `client_email` as **Editor**. Put the key JSON in
+   `GOOGLE_SERVICE_ACCOUNT_JSON` (raw single-line JSON or base64).
+3. **OAuth client** (for analyst sign-in only): create an OAuth client ID of type *Web application* with
+   the redirect URI `<NEXTAUTH_URL>/api/auth/callback/google`. Put its ID and secret in
+   `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
+4. **Sheet tabs** (row 1 = headers; column order does not matter; names are configurable):
+   - `applications`: `borrower_id, nik, borrower_name, business_name, business_type, province, city,
+     credit_score, tenor_months, monthly_income_idr, loan_amount_granted, application_status, pd_score,
+     decision_notes, borderline_final_review_status, reviewed_by, reviewed_at, review_remarks, review_id`
+     (the n8n workflow must fill `city`; the last five are written by Raven only).
+   - `raven_reviews`: `review_id, borrower_id, action, final_status, remarks, analyst_email, decided_at,
+     pd_score, loan_amount_granted, tenor_months` (headers only; Raven appends rows).
+   - `raven_users`: `email, display_name, role, active` (role `analyst` or `viewer`; active `TRUE`/`FALSE`).
+
+If a required column is missing, Raven shows an error naming the tab and column instead of loading.
 
 ## Configuration
 
-Copy the template and edit it. `.env.local` is git-ignored; never commit real IDs or keys.
-
 ```bash
-cp .env.example .env.local
+cp .env.example .env.local     # git-ignored; never commit real values
+openssl rand -base64 32        # paste the output into NEXTAUTH_SECRET
 ```
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `RAVEN_DATA_SOURCE` | no (default `fixture`) | `fixture` or `sheets` |
-| `GOOGLE_SHEETS_SPREADSHEET_ID` | when `sheets` | Master sheet ID (read and write-back) |
-| `GOOGLE_APPLICATION_CREDENTIALS` | when `sheets` | Path to the service-account JSON key |
-| `GOOGLE_SHEETS_APPLICATIONS_TAB` | no (default `Applications`) | Worksheet with application rows |
-| `GOOGLE_SHEETS_API_KEY` | no | Optional read-only API key |
-| `RAVEN_ANALYST_ID` | no (default `ANALYST_LOCAL_01`) | Analyst ID on decisions until auth exists |
+| `RAVEN_DATA_SOURCE` | no (default `fixture`) | `fixture` (sample data) or `sheets` |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | when `sheets` | Master spreadsheet ID |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | when `sheets` | Service-account key (raw JSON or base64) |
+| `RAVEN_TAB_APPLICATIONS` / `RAVEN_TAB_REVIEWS` / `RAVEN_TAB_USERS` | no | Tab names (defaults `applications`, `raven_reviews`, `raven_users`) |
+| `NEXTAUTH_SECRET` | yes | Session signing key, ≥ 32 characters |
+| `NEXTAUTH_URL` | yes in production | Public base URL (OAuth redirects) |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | yes, unless dev sign-in | Google sign-in |
+| `RAVEN_DEV_SIGNIN` | no | `true` = sign in as a sample user without Google. Allowed only with `fixture` data outside production |
 
-With `RAVEN_DATA_SOURCE=sheets`, the app fails fast with a `ConfigError` naming any missing
-required variable.
+The app fails fast with a message naming any missing or unsafe setting.
 
 ## Commands
 
 ```bash
 npm ci              # install the exact locked dependencies
-npm run dev         # dev server at http://localhost:3000
+npm run dev         # dev server at http://localhost:3000 (needs .env.local, see below)
 npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
-npm test            # Vitest unit tests (run once)
-npm run build       # production build
-npm run start       # serve the production build (run `npm run build` first)
+npm test            # Vitest unit and route tests (run once)
+npm run build       # production build (no environment needed at build time)
+npm run start       # serve the production build (needs Google sign-in config)
 ```
 
-All of these were run against this scaffold and pass with no warnings. What you can exercise today:
+### Run locally with sample data (no Google account needed)
+
+In `.env.local`:
 
 ```bash
-curl http://localhost:3000/api/applications                 # 3 pending sample rows
-curl "http://localhost:3000/api/applications?view=accepted" # decided sample rows
-curl "http://localhost:3000/api/applications?view=rejected"
-curl -X POST http://localhost:3000/api/decisions            # 501: write-back not implemented
+RAVEN_DATA_SOURCE=fixture
+NEXTAUTH_SECRET=<output of openssl rand -base64 32>
+NEXTAUTH_URL=http://localhost:3000
+RAVEN_DEV_SIGNIN=true
 ```
 
-With `RAVEN_DATA_SOURCE=sheets` and the required variables set, `/api/applications` returns 501
-because the Sheets adapter is a placeholder.
+Then `npm run dev`, open http://localhost:3000 and pick a sample user (`analyst@raven.local`,
+`viewer@raven.local`, or the deactivated `former@raven.local`). Decisions are kept in memory and reset when
+the server restarts. `npm run start` refuses dev sign-in (production mode), so it needs the Google OAuth
+settings.
 
-## What is not implemented
+### Run against the real sheet
 
-- Tab 1 and Tab 2 UI: tables, province/city filter bar, search, review drawer, restructuring badge.
-- Decision flow: remarks validation, status transition, write-back and moving rows to Historical.
-- PII masking logic (sample data is already masked).
-- Google Sheets read and write-back (`src/data/sheets/`).
-- Analyst authentication.
+Set `RAVEN_DATA_SOURCE=sheets`, the spreadsheet ID, service-account JSON, OAuth client and
+`NEXTAUTH_URL`, leave `RAVEN_DEV_SIGNIN` unset, then `npm run build && npm run start`.
+
+## Verification status
+
+- `npm ci`, `lint`, `typecheck`, `test` and `build` pass with no warnings.
+- The full flow was exercised in Chromium against the sample data with dev sign-in: filters, reject
+  validation, accept/reject, history, duplicate-decision 409, viewer 403, deactivated-user denial,
+  phone-width layout.
+- **Not yet verified against a live Google Sheet or real Google sign-in** (no credentials were available
+  while building). The Sheets adapter is tested against an in-memory fake of the Sheets API.

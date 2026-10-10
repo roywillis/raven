@@ -2,26 +2,39 @@
  * Server-side configuration. Values come from environment variables (for local development,
  * a git-ignored `.env.local`; see `.env.example`). Nothing secret is hardcoded here.
  *
- * Never import this module from client components: it reads credentials paths and IDs that
- * must stay on the server.
+ * Never import this module from client components.
  */
 
 export type DataSource = "fixture" | "sheets";
 
+export interface ServiceAccountCredentials {
+  client_email: string;
+  private_key: string;
+}
+
 export interface SheetsConfig {
   spreadsheetId: string;
-  applicationsTab: string;
-  /** Path to a service-account JSON key. Required for write-back. */
-  credentialsPath: string;
-  /** Optional read-only API key; cannot be used for writes. */
-  apiKey?: string;
+  credentials: ServiceAccountCredentials;
+  tabs: {
+    applications: string;
+    reviews: string;
+    users: string;
+  };
+}
+
+export interface AuthConfig {
+  secret: string;
+  /** Google sign-in for analysts. Absent only when dev sign-in is used locally. */
+  google?: { clientId: string; clientSecret: string };
+  /** Local-only sign-in as a fixture user. Never enabled in production or sheets mode. */
+  devSignIn: boolean;
 }
 
 export interface AppConfig {
   dataSource: DataSource;
-  analystId: string;
   /** Present only when `dataSource === "sheets"`. */
   sheets?: SheetsConfig;
+  auth: AuthConfig;
 }
 
 export class ConfigError extends Error {
@@ -33,8 +46,7 @@ export class ConfigError extends Error {
 
 type Env = Record<string, string | undefined>;
 
-const DEFAULT_ANALYST_ID = "ANALYST_LOCAL_01";
-const DEFAULT_APPLICATIONS_TAB = "Applications";
+const MIN_SECRET_LENGTH = 32;
 
 function read(env: Env, key: string): string | undefined {
   const value = env[key]?.trim();
@@ -47,35 +59,82 @@ function parseDataSource(raw: string | undefined): DataSource {
   throw new ConfigError(`RAVEN_DATA_SOURCE must be "fixture" or "sheets", got "${raw}".`);
 }
 
-/** Builds and validates the config. Fails fast when Sheets mode is selected but incomplete. */
-export function loadConfig(env: Env = process.env): AppConfig {
-  const dataSource = parseDataSource(read(env, "RAVEN_DATA_SOURCE"));
-  const analystId = read(env, "RAVEN_ANALYST_ID") ?? DEFAULT_ANALYST_ID;
-
-  if (dataSource === "fixture") {
-    return { dataSource, analystId };
+/**
+ * Parses the service-account key from `GOOGLE_SERVICE_ACCOUNT_JSON`, given either as raw JSON
+ * or base64-encoded JSON (useful on hosts that mangle newlines in env vars).
+ */
+export function parseServiceAccount(raw: string): ServiceAccountCredentials {
+  const text = raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new ConfigError("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON (raw or base64).");
   }
+  const { client_email, private_key } = (parsed ?? {}) as Record<string, unknown>;
+  if (typeof client_email !== "string" || typeof private_key !== "string" || !private_key.includes("PRIVATE KEY")) {
+    throw new ConfigError("GOOGLE_SERVICE_ACCOUNT_JSON must contain client_email and private_key.");
+  }
+  return { client_email, private_key: private_key.replace(/\\n/g, "\n") };
+}
 
-  const spreadsheetId = read(env, "GOOGLE_SHEETS_SPREADSHEET_ID");
-  const credentialsPath = read(env, "GOOGLE_APPLICATION_CREDENTIALS");
-  const missing = [
-    !spreadsheetId && "GOOGLE_SHEETS_SPREADSHEET_ID",
-    !credentialsPath && "GOOGLE_APPLICATION_CREDENTIALS",
-  ].filter(Boolean);
+function requireAll(env: Env, keys: string[], context: string): void {
+  const missing = keys.filter((key) => !read(env, key));
   if (missing.length > 0) {
+    throw new ConfigError(`${context} requires: ${missing.join(", ")}. See .env.example.`);
+  }
+}
+
+function loadSheets(env: Env): SheetsConfig {
+  requireAll(env, ["GOOGLE_SHEETS_SPREADSHEET_ID", "GOOGLE_SERVICE_ACCOUNT_JSON"], "RAVEN_DATA_SOURCE=sheets");
+  return {
+    spreadsheetId: read(env, "GOOGLE_SHEETS_SPREADSHEET_ID")!,
+    credentials: parseServiceAccount(read(env, "GOOGLE_SERVICE_ACCOUNT_JSON")!),
+    tabs: {
+      applications: read(env, "RAVEN_TAB_APPLICATIONS") ?? "applications",
+      reviews: read(env, "RAVEN_TAB_REVIEWS") ?? "raven_reviews",
+      users: read(env, "RAVEN_TAB_USERS") ?? "raven_users",
+    },
+  };
+}
+
+function loadAuth(env: Env, dataSource: DataSource): AuthConfig {
+  const secret = read(env, "NEXTAUTH_SECRET");
+  if (!secret || secret.length < MIN_SECRET_LENGTH) {
     throw new ConfigError(
-      `RAVEN_DATA_SOURCE=sheets requires: ${missing.join(", ")}. See .env.example.`,
+      `NEXTAUTH_SECRET must be set to at least ${MIN_SECRET_LENGTH} characters (generate one with: openssl rand -base64 32).`,
     );
   }
 
+  const devSignIn = read(env, "RAVEN_DEV_SIGNIN") === "true";
+  if (devSignIn && (env.NODE_ENV === "production" || dataSource !== "fixture")) {
+    throw new ConfigError("RAVEN_DEV_SIGNIN is only allowed with RAVEN_DATA_SOURCE=fixture outside production.");
+  }
+
+  const clientId = read(env, "GOOGLE_OAUTH_CLIENT_ID");
+  const clientSecret = read(env, "GOOGLE_OAUTH_CLIENT_SECRET");
+  if (!devSignIn) {
+    requireAll(env, ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"], "Google sign-in");
+  }
+  const google = clientId && clientSecret ? { clientId, clientSecret } : undefined;
+
+  return { secret, google, devSignIn };
+}
+
+/** Builds and validates the config. Fails fast on missing or unsafe settings. */
+export function loadConfig(env: Env = process.env): AppConfig {
+  const dataSource = parseDataSource(read(env, "RAVEN_DATA_SOURCE"));
   return {
     dataSource,
-    analystId,
-    sheets: {
-      spreadsheetId: spreadsheetId!,
-      credentialsPath: credentialsPath!,
-      applicationsTab: read(env, "GOOGLE_SHEETS_APPLICATIONS_TAB") ?? DEFAULT_APPLICATIONS_TAB,
-      apiKey: read(env, "GOOGLE_SHEETS_API_KEY"),
-    },
+    sheets: dataSource === "sheets" ? loadSheets(env) : undefined,
+    auth: loadAuth(env, dataSource),
   };
+}
+
+let cached: AppConfig | undefined;
+
+/** Process-wide config, loaded on first use (not at build time). */
+export function getConfig(): AppConfig {
+  cached ??= loadConfig();
+  return cached;
 }

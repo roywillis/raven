@@ -1,0 +1,20 @@
+[
+  {
+    "email": "analyst@raven.local",
+    "display_name": "Sample Analyst (Surabaya)",
+    "role": "analyst",
+    "active": true
+  },
+  {
+    "email": "viewer@raven.local",
+    "display_name": "Sample Auditor",
+    "role": "viewer",
+    "active": true
+  },
+  {
+    "email": "former@raven.local",
+    "display_name": "Deactivated User",
+    "role": "analyst",
+    "active": false
+  }
+]

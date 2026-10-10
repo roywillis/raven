@@ -1,16 +1,77 @@
-/** Data contracts from prd.md §5. Field names match the PRD payloads exactly. */
+/**
+ * Data contracts. Sheet column names are used verbatim as field names (see prd.md §5).
+ */
 
-export type ApplicationStatus =
-  | "BORDERLINE_HITL"
-  | "APPROVED_AUTO"
-  | "APPROVED_HITL"
-  | "DECLINED_AUTO"
-  | "DECLINED_HITL";
+/** `application_status` values written by the n8n workflow. Other values are ignored by Raven. */
+export type WorkflowStatus = "BORDERLINE_HITL" | "APPROVED_AUTO" | "DECLINED_AUTO";
+
+/** Values Raven writes to `borderline_final_review_status`. */
+export type FinalReviewStatus = "APPROVED_HITL" | "DECLINED_HITL";
 
 export type DecisionAction = "ACCEPT" | "REJECT";
 
-/** prd.md §5.1: ingested application payload (Incoming tab). */
-export interface IncomingApplication {
+export type DecisionSource = "STP" | "HITL";
+
+export type UserRole = "analyst" | "viewer";
+
+/** One row of the master `applications` tab. Raw PII: never send this to the browser. */
+export interface SheetApplication {
+  borrower_id: string;
+  nik: string;
+  borrower_name: string;
+  business_name: string;
+  business_type: string;
+  province: string;
+  city: string;
+  credit_score: number;
+  tenor_months: number;
+  monthly_income_idr: number;
+  loan_amount_granted: number;
+  application_status: string;
+  pd_score: number;
+  /** AI-agent note from the workflow explaining the borderline categorisation. */
+  decision_notes: string;
+  /** Raven-written columns on the master row (empty until reviewed). */
+  borderline_final_review_status: FinalReviewStatus | "";
+  reviewed_by: string;
+  reviewed_at: string;
+  review_remarks: string;
+  review_id: string;
+}
+
+/** One row of the Raven-owned, append-only `raven_reviews` tab. */
+export interface ReviewRecord {
+  review_id: string;
+  borrower_id: string;
+  action: DecisionAction;
+  final_status: FinalReviewStatus;
+  remarks: string;
+  analyst_email: string;
+  /** ISO-8601 UTC. */
+  decided_at: string;
+  /** Snapshot of the application at decision time. */
+  pd_score: number;
+  loan_amount_granted: number;
+  tenor_months: number;
+}
+
+/** One row of the `raven_users` tab. */
+export interface RavenUser {
+  email: string;
+  display_name: string;
+  role: UserRole;
+  active: boolean;
+}
+
+/** Analyst-submitted decision (request body of POST /api/decisions). */
+export interface DecisionInput {
+  borrower_id: string;
+  action: DecisionAction;
+  remarks?: string;
+}
+
+/** Browser-safe application: PII masked. */
+export interface ApplicationView {
   borrower_id: string;
   masked_nik: string;
   masked_name: string;
@@ -19,37 +80,29 @@ export interface IncomingApplication {
   province: string;
   city: string;
   credit_score: number;
+  tenor_months: number;
   monthly_income_idr: number;
-  monthly_installment_idr: number;
-  dti_ratio: number;
-  requested_amount_idr: number;
-  requested_tenor_months: number;
-  effective_amount_idr: number;
-  effective_tenor_months: number;
+  loan_amount_granted: number;
   pd_score: number;
   pd_label: string;
-  application_status: ApplicationStatus;
-  risk_summary: string;
+  decision_notes: string;
 }
 
-/** prd.md §5.2: analyst decision write-back payload. */
-export interface DecisionPayload {
-  borrower_id: string;
-  analyst_id: string;
-  action: DecisionAction;
-  updated_status: Extract<ApplicationStatus, "APPROVED_HITL" | "DECLINED_HITL">;
-  remarks: string;
-  /** ISO-8601 UTC timestamp. */
-  timestamp: string;
+/** Browser-safe historical record for Tab 2. */
+export interface HistoryView extends ApplicationView {
+  final_status: WorkflowStatus | FinalReviewStatus;
+  decision_source: DecisionSource;
+  decided_at: string | null;
+  analyst_email: string | null;
+  remarks: string | null;
+  /** Decision is logged in `raven_reviews` but not yet mirrored to the master row. */
+  sync_pending: boolean;
 }
 
-/**
- * Historical (view-only) record, prd.md §2.2 and Story 3. The PRD does not define the sheet
- * columns for decision metadata, so these fields are optional until the sheet layout is confirmed.
- */
-export interface HistoricalApplication extends IncomingApplication {
-  decision_source?: "STP" | "HITL";
-  analyst_id?: string;
-  analyst_remarks?: string;
-  processed_at_timestamp?: string;
+export interface QueueView {
+  pending: ApplicationView[];
+  accepted: HistoryView[];
+  rejected: HistoryView[];
+  /** Human-readable data problems (duplicate borrower IDs, unparseable rows). */
+  data_errors: string[];
 }
