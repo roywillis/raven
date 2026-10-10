@@ -62,6 +62,17 @@ export class SheetsClient {
     }
   }
 
+  /** Spreadsheet title and tab names (read-only metadata). */
+  async getMetadata(): Promise<{ title: string; tabs: string[] }> {
+    const data = await this.request<{ properties?: { title?: string }; sheets?: { properties?: { title?: string } }[] }>(
+      this.url("", { fields: "properties.title,sheets.properties.title" }),
+    );
+    return {
+      title: data.properties?.title ?? "",
+      tabs: (data.sheets ?? []).map((sheet) => sheet.properties?.title ?? "").filter(Boolean),
+    };
+  }
+
   async batchGet(ranges: string[]): Promise<Cell[][][]> {
     const query = new URLSearchParams({ valueRenderOption: "UNFORMATTED_VALUE", dateTimeRenderOption: "FORMATTED_STRING" });
     ranges.forEach((range) => query.append("ranges", range));

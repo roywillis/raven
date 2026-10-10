@@ -28,8 +28,14 @@ export class FakeSheets {
     const status = this.failNext.shift();
     if (status) return new Response("boom", { status });
 
+    if (/\/v4\/spreadsheets\/[^/]+$/.test(url.pathname)) {
+      return Response.json({ properties: { title: "Fake sheet" }, sheets: Object.keys(this.tabs).map((title) => ({ properties: { title } })) });
+    }
     if (url.pathname.endsWith("/values:batchGet")) {
-      const valueRanges = url.searchParams.getAll("ranges").map((range) => {
+      const ranges = url.searchParams.getAll("ranges");
+      const unknown = ranges.find((range) => !(this.parseRange(range).tab in this.tabs));
+      if (unknown) return new Response(`Unable to parse range: ${unknown}`, { status: 400 });
+      const valueRanges = ranges.map((range) => {
         const { tab, headerOnly } = this.parseRange(range);
         const rows = this.tabs[tab] ?? [];
         return { values: headerOnly ? rows.slice(0, 1) : rows };

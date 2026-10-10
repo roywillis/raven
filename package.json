@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:sheets": "vitest run --config vitest.live.config.mts"
   },
   "dependencies": {
     "google-auth-library": "11.1.0",

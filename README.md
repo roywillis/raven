@@ -58,7 +58,7 @@ All dependency versions are pinned exactly in `package.json` and locked in `pack
 ├── next.config.ts
 ├── package.json / package-lock.json
 ├── tsconfig.json
-├── vitest.config.mts
+├── vitest.config.mts / vitest.live.config.mts
 ├── fixtures/
 │   ├── applications.sample.json     # Fictional sample rows in the real sheet columns
 │   └── users.sample.json            # Sample users (analyst, viewer, deactivated)
@@ -83,8 +83,8 @@ All dependency versions are pinned exactly in `package.json` and locked in `pack
 │       ├── ports.ts                 # ApplicationReader / ReviewStore / UserDirectory interfaces
 │       ├── index.ts                 # Picks the adapter from RAVEN_DATA_SOURCE
 │       ├── fixture/                 # In-memory adapter over fixtures/ (local dev, tests)
-│       └── sheets/                  # Google Sheets adapter: REST client, header mapping, schema
-└── tests/                           # Vitest unit and route tests
+│       └── sheets/                  # Google Sheets adapter: REST client, header mapping, schema, check
+└── tests/                           # Vitest unit and route tests; tests/live/ = check:sheets
 ```
 
 ## Prerequisites
@@ -116,6 +116,32 @@ All dependency versions are pinned exactly in `package.json` and locked in `pack
 
 If a required column is missing, Raven shows an error naming the tab and column instead of loading.
 
+Header rows ready to paste into cell A1 of each tab (tab-separated, so Google Sheets splits them into
+columns). For `applications`, paste the five Raven columns into the first empty cells of row 1:
+
+```text
+borderline_final_review_status	reviewed_by	reviewed_at	review_remarks	review_id
+```
+```text
+review_id	borrower_id	action	final_status	remarks	analyst_email	decided_at	pd_score	loan_amount_granted	tenor_months
+```
+```text
+email	display_name	role	active
+```
+
+### Check the live sheet (read-only)
+
+```bash
+npm run check:sheets
+```
+
+Uses `GOOGLE_SHEETS_SPREADSHEET_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` from the environment or
+`.env.local` (no sign-in settings needed). It authenticates as the service account, then checks that
+each tab exists with the required headers. It reports unrecognised headers, unreadable rows,
+duplicate borrower IDs, empty cities, unknown statuses and whether an active analyst exists. It writes
+nothing, prints no NIKs or names, and does not test write access. It exits non-zero while there are
+blocking problems. It is not part of `npm test`.
+
 ## Configuration
 
 ```bash
@@ -144,6 +170,7 @@ npm run dev         # dev server at http://localhost:3000 (needs .env.local, see
 npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest unit and route tests (run once)
+npm run check:sheets  # read-only check of the live Google Sheet (needs Sheets credentials)
 npm run build       # production build (no environment needed at build time)
 npm run start       # serve the production build (needs Google sign-in config)
 ```
@@ -175,5 +202,6 @@ Set `RAVEN_DATA_SOURCE=sheets`, the spreadsheet ID, service-account JSON, OAuth 
 - The full flow was exercised in Chromium against the sample data with dev sign-in: filters, reject
   validation, accept/reject, history, duplicate-decision 409, viewer 403, deactivated-user denial,
   phone-width layout.
-- **Not yet verified against a live Google Sheet or real Google sign-in** (no credentials were available
-  while building). The Sheets adapter is tested against an in-memory fake of the Sheets API.
+- `npm run check:sheets` ran against the real spreadsheet: service-account authentication and reads
+  work. Writes and real Google sign-in have not been exercised yet. The Sheets adapter's writes are
+  tested against an in-memory fake of the Sheets API.

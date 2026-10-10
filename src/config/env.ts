@@ -85,7 +85,8 @@ function requireAll(env: Env, keys: string[], context: string): void {
   }
 }
 
-function loadSheets(env: Env): SheetsConfig {
+/** Loads only the Google Sheets settings (used by the app and by `npm run check:sheets`). */
+export function loadSheetsConfig(env: Env = process.env): SheetsConfig {
   requireAll(env, ["GOOGLE_SHEETS_SPREADSHEET_ID", "GOOGLE_SERVICE_ACCOUNT_JSON"], "RAVEN_DATA_SOURCE=sheets");
   return {
     spreadsheetId: read(env, "GOOGLE_SHEETS_SPREADSHEET_ID")!,
@@ -126,7 +127,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
   const dataSource = parseDataSource(read(env, "RAVEN_DATA_SOURCE"));
   return {
     dataSource,
-    sheets: dataSource === "sheets" ? loadSheets(env) : undefined,
+    sheets: dataSource === "sheets" ? loadSheetsConfig(env) : undefined,
     auth: loadAuth(env, dataSource),
   };
 }

@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Live checks need real credentials; run them with `npm run check:sheets`.
+    exclude: ["tests/live/**", "node_modules/**"],
   },
 });
