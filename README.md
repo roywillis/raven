@@ -156,7 +156,7 @@ openssl rand -base64 32        # paste the output into NEXTAUTH_SECRET
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | when `sheets` | Service-account key (raw JSON or base64) |
 | `RAVEN_TAB_APPLICATIONS` / `RAVEN_TAB_REVIEWS` / `RAVEN_TAB_USERS` | no | Tab names (defaults `applications`, `raven_reviews`, `raven_users`) |
 | `NEXTAUTH_SECRET` | yes | Session signing key, ≥ 32 characters |
-| `NEXTAUTH_URL` | yes in production | Public base URL (OAuth redirects) |
+| `NEXTAUTH_URL` | yes in production, except on Vercel | Public base URL (OAuth redirects). On Vercel it is detected automatically |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | yes, unless dev sign-in | Google sign-in |
 | `RAVEN_DEV_SIGNIN` | no | `true` = sign in as a sample user without Google. Allowed only with `fixture` data outside production |
 
@@ -195,6 +195,30 @@ settings.
 
 Set `RAVEN_DATA_SOURCE=sheets`, the spreadsheet ID, service-account JSON, OAuth client and
 `NEXTAUTH_URL`, leave `RAVEN_DEV_SIGNIN` unset, then `npm run build && npm run start`.
+
+### Deploy on Vercel
+
+1. In Vercel: **Add New → Project → Import** `roywillis/raven`. The Next.js defaults (build command,
+   output, Node 22 from `package.json`) need no changes.
+2. Add these environment variables (Production and Preview), marking the secret ones **Sensitive**:
+
+   | Variable | Value |
+   | --- | --- |
+   | `RAVEN_DATA_SOURCE` | `sheets` |
+   | `GOOGLE_SHEETS_SPREADSHEET_ID` | the spreadsheet ID |
+   | `GOOGLE_SERVICE_ACCOUNT_JSON` | the whole downloaded key file, pasted as-is (or base64) |
+   | `NEXTAUTH_SECRET` | 32+ random characters (`openssl rand -base64 32`) |
+   | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | from the OAuth client |
+
+   Leave `NEXTAUTH_URL` and `RAVEN_DEV_SIGNIN` unset (dev sign-in is always refused on Vercel).
+3. In the Google OAuth client, add the deployment URL as an authorized JavaScript origin and
+   `<URL>/api/auth/callback/google` as an authorized redirect URI. Use a stable URL: the production
+   domain, or a branch's preview alias. Per-commit preview URLs change on every push.
+4. After changing environment variables, redeploy so they take effect.
+
+Vercel can run several server instances at once, so the in-process lock does not span them. The
+re-read before each decision still rejects most double decisions. If two land within the same moment,
+the earliest one counts and the other is reported as a data issue in the portal.
 
 ## Verification status
 
