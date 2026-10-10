@@ -141,6 +141,20 @@ tbody tr:last-child td { border-bottom: none; }
 td.empty { text-align: center; color: var(--color-text-muted); padding: 24px; }
 td.remarks { max-width: 320px; }
 
+/* Pagination (table footer) */
+.pagination {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 12px;
+}
+.pagination-range { margin: 0; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.pagination-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pagination-pages .btn { min-width: 34px; font-variant-numeric: tabular-nums; }
+.pagination-current { background: var(--color-text); border-color: var(--color-text); color: var(--color-card); font-weight: 600; }
+.pagination-current:hover:not(:disabled) { background: var(--color-text); }
+.pagination-gap { min-width: 24px; text-align: center; color: var(--color-text-muted); }
+.pagination-size { display: flex; align-items: center; gap: 8px; color: var(--color-text-muted); white-space: nowrap; }
+.pagination-size select { width: auto; min-height: 30px; padding: 2px 8px; }
+
 /* Drawer */
 .drawer-backdrop {
   position: fixed; inset: 0; z-index: 20; background: rgb(15 23 42 / 0.35); display: flex; justify-content: flex-end;

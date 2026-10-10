@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { DEFAULT_PAGE_SIZE, paginate } from "@/domain/pagination";
 import type { HistoryView } from "@/domain/types";
 import { formatDateTime } from "./format";
+import { Pagination } from "./Pagination";
 
 interface HistoryTabProps {
   accepted: HistoryView[];
@@ -11,8 +13,17 @@ interface HistoryTabProps {
 
 /** View-only log (prd.md Story 3): no inputs or action buttons besides the sub-tab switch. */
 export function HistoryTab({ accepted, rejected }: HistoryTabProps) {
-  const [view, setView] = useState<"accepted" | "rejected">("accepted");
+  const [view, setViewState] = useState<"accepted" | "rejected">("accepted");
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const rows = view === "accepted" ? accepted : rejected;
+  const page = paginate(rows, pageNumber, pageSize);
+
+  // Switching sub-tab starts again from the first page.
+  const setView = (next: "accepted" | "rejected") => {
+    setViewState(next);
+    setPageNumber(1);
+  };
 
   return (
     <section aria-label="Historical applications">
@@ -41,7 +52,7 @@ export function HistoryTab({ accepted, rejected }: HistoryTabProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {page.items.map((row) => (
               <tr key={row.borrower_id}>
                 <td className="mono">{row.borrower_id}</td>
                 <td>
@@ -81,6 +92,16 @@ export function HistoryTab({ accepted, rejected }: HistoryTabProps) {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        noun={`${view} applications`}
+        onPageChange={setPageNumber}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPageNumber(1);
+        }}
+      />
     </section>
   );
 }
