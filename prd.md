@@ -1,12 +1,13 @@
 # Product Requirement Document (PRD) — Project "Raven"
 **Product Name:** Credit Risk Analyst Reviewer Portal (Raven)  
-**Document Version:** 2.4 (credit score removed; data issues out of the UI)  
+**Document Version:** 2.5 (table pagination)  
 **Target Consumer:** Claude Code / Engineering Team  
 **Status:** Approved for Implementation  
 
 ### Change Log
 | Version | Change |
 | --- | --- |
+| 2.5 | Pagination on every dashboard table (Incoming, Accepted, Rejected). |
 | 2.4 | `credit_score` removed from the master sheet and the review drawer. Sheet data issues (unreadable rows, duplicate borrower IDs, conflicting reviews) are no longer shown in the portal; they are written to the server logs and reported by `npm run check:sheets`. |
 | 2.3 | Inter adopted as the design-system typeface for all UI text. |
 | 2.2 | Light theme replaces Dark Slate Mode; status indicators are filled pills (no border) in deeper shades so white text stays readable. Review drawer slides in/out; decision notifications are a floating snackbar that auto-dismisses after 5 seconds (paused while hovered) instead of a banner that pushes the list down. |
@@ -31,10 +32,12 @@ The dashboard intercepts borderline loan applications—specifically those evalu
    - Location Filter Bar with **multi-select Province** and **City/Municipality** filters populated from dataset values, plus search by Borrower ID or business name.
    - Interactive Application Review Drawer showing the borrower's financial profile, $PD\%$, loan amount granted, tenor and the AI risk note (`decision_notes`).
    - Action Panel: **Accept** (one click + confirmation, optional remarks) and **Reject** (mandatory remarks).
+   - Pagination: 10 rows per page by default (10 / 25 / 50 selectable), "Showing X–Y of Z" range, Previous/Next and page numbers. Any filter or search change returns to page 1.
 
 2. **Tab 2: Historical Applications (View-Only Log)**
    - Categorized sub-tabs for **Accepted Applications** (`APPROVED_AUTO`, `APPROVED_HITL`) and **Rejected Applications** (`DECLINED_AUTO`, `DECLINED_HITL`).
    - Read-only table view featuring borrower metadata, decision timestamp, analyst email, decision source (STP vs HITL), and analyst remarks.
+   - Same pagination as Tab 1; switching between the Accepted and Rejected sub-tabs returns to page 1.
 
 3. **Database Sync & State Management** (see §5)
    - Each decision is appended to the Raven-owned `raven_reviews` log, then mirrored to Raven's columns on the master row.

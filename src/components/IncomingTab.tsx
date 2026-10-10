@@ -10,9 +10,11 @@ import {
   withProvinces,
   type IncomingFilters,
 } from "@/domain/filters";
+import { DEFAULT_PAGE_SIZE, paginate } from "@/domain/pagination";
 import type { ApplicationView } from "@/domain/types";
 import { formatRupiah } from "./format";
 import { MultiSelect } from "./MultiSelect";
+import { Pagination } from "./Pagination";
 
 interface IncomingTabProps {
   rows: ApplicationView[];
@@ -21,10 +23,19 @@ interface IncomingTabProps {
 }
 
 export function IncomingTab({ rows, canDecide, onReview }: IncomingTabProps) {
-  const [filters, setFilters] = useState<IncomingFilters>(EMPTY_FILTERS);
+  const [filters, setFiltersState] = useState<IncomingFilters>(EMPTY_FILTERS);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const provinces = useMemo(() => provinceOptions(rows), [rows]);
   const cities = useMemo(() => cityOptions(rows, filters.provinces), [rows, filters.provinces]);
   const visible = useMemo(() => applyFilters(rows, filters), [rows, filters]);
+  const page = paginate(visible, pageNumber, pageSize);
+
+  // Any filter change starts again from the first page.
+  const setFilters = (next: IncomingFilters) => {
+    setFiltersState(next);
+    setPageNumber(1);
+  };
 
   return (
     <section aria-label="Incoming applications">
@@ -76,7 +87,7 @@ export function IncomingTab({ rows, canDecide, onReview }: IncomingTabProps) {
             </tr>
           </thead>
           <tbody>
-            {visible.map((row) => (
+            {page.items.map((row) => (
               <tr key={row.borrower_id}>
                 <td className="mono">{row.borrower_id}</td>
                 <td>
@@ -107,6 +118,16 @@ export function IncomingTab({ rows, canDecide, onReview }: IncomingTabProps) {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        noun="applications"
+        onPageChange={setPageNumber}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPageNumber(1);
+        }}
+      />
     </section>
   );
 }
