@@ -88,7 +88,6 @@ export function toApplicationView(app: SheetApplication): ApplicationView {
     business_type: app.business_type,
     province: app.province,
     city: app.city,
-    credit_score: app.credit_score,
     tenor_months: app.tenor_months,
     monthly_income_idr: app.monthly_income_idr,
     loan_amount_granted: app.loan_amount_granted,

@@ -60,7 +60,13 @@ export class ReviewService {
 
   async getQueue(): Promise<QueueView> {
     const [snapshot, reviews] = await Promise.all([this.repos.applications.listApplications(), this.repos.reviews.listReviews()]);
-    return buildQueueView(snapshot.applications, reviews, snapshot.errors);
+    const view = buildQueueView(snapshot.applications, reviews, snapshot.errors);
+    if (view.data_errors.length > 0) {
+      // Not shown in the UI; affected rows are hidden, so surface them in the server logs instead.
+      // Messages contain borrower IDs and column names only, no personal data.
+      console.warn(`[raven] ${view.data_errors.length} sheet data issue(s):\n- ${view.data_errors.join("\n- ")}`);
+    }
+    return view;
   }
 
   /** Validates, logs, then mirrors one decision. `analystEmail` must come from the session. */

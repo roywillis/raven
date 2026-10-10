@@ -55,16 +55,6 @@ export function ReviewPortal({ queue, user }: ReviewPortalProps) {
       </header>
 
       <main className="content">
-        {queue.data_errors.length > 0 && (
-          <details className="banner banner-warning">
-            <summary>{queue.data_errors.length} data issue(s) in the sheet need attention</summary>
-            <ul>
-              {queue.data_errors.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          </details>
-        )}
         {canDecide && syncPending > 0 && (
           <div className="banner banner-warning">
             <span>{syncPending} decision(s) are not yet mirrored to the master sheet.</span>

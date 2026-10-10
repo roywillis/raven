@@ -64,6 +64,16 @@ describe("Story 2: submit review decision", () => {
     expect(await store.listReviews()).toHaveLength(1);
   });
 
+  it("logs sheet data issues on the server instead of showing them in the UI", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    store = new FixtureRepository([makeApp(), makeApp()], []);
+    service = new ReviewService({ applications: store, reviews: store, users: store });
+    const queue = await service.getQueue();
+    expect(queue.pending).toHaveLength(0);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Borrower BOR-0026 appears on more than one row"));
+    warn.mockRestore();
+  });
+
   it("returns 404 for an unknown borrower", async () => {
     await expect(service.submitDecision({ borrower_id: "BOR-404", action: "ACCEPT" }, "a@x.id")).rejects.toMatchObject({ status: 404 });
   });

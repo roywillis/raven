@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkSheetsSetup, explainAccessError, formatReport } from "@/data/sheets/check";
 import { SheetsApiError, SheetsClient } from "@/data/sheets/client";
-import { APPLICATION_COLUMNS, REVIEW_COLUMNS, USER_COLUMNS } from "@/data/sheets/schema";
+import { APPLICATION_COLUMNS, REVIEW_COLUMNS, USER_COLUMNS, WORKFLOW_COLUMNS } from "@/data/sheets/schema";
 import { FakeSheets } from "./fake-sheets";
 
 const TABS = { applications: "applications", reviews: "raven_reviews", users: "raven_users" };
@@ -10,7 +10,7 @@ const EMAIL = "sheets-writer@project.iam.gserviceaccount.com";
 const app = (values: Record<string, string | number>) => {
   const row: Record<string, string | number> = {
     borrower_id: "BOR-1", nik: "3578010101900020", borrower_name: "Anton Gunawan", province: "Jawa Timur", city: "Surabaya",
-    credit_score: 670, tenor_months: 12, monthly_income_idr: 1, loan_amount_granted: 1, pd_score: 0.1,
+    tenor_months: 12, monthly_income_idr: 1, loan_amount_granted: 1, pd_score: 0.1,
     application_status: "BORDERLINE_HITL", ...values,
   };
   return APPLICATION_COLUMNS.map((column) => row[column] ?? "");
@@ -49,9 +49,8 @@ describe("checkSheetsSetup", () => {
   });
 
   it("still analyses workflow data when only Raven's columns are missing, and points at renamed headers", async () => {
-    const workflow = APPLICATION_COLUMNS.slice(0, 14);
-    const header = [...workflow, "Review status for BORDERLINE"];
-    const row = app({}).slice(0, 14);
+    const header = [...WORKFLOW_COLUMNS, "Review status for BORDERLINE"];
+    const row = app({}).slice(0, WORKFLOW_COLUMNS.length);
     const report = await check({
       applications: [header, [...row, ""]],
       raven_reviews: [[...REVIEW_COLUMNS]],

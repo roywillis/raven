@@ -14,7 +14,7 @@ function appRow(values: Record<string, string | number>) {
 
 const anton = {
   borrower_id: "BOR-0026", nik: "3578010101900020", borrower_name: "Anton Gunawan", business_name: "Distributor Sayur",
-  business_type: "Pertanian", province: "Jawa Timur", city: "Surabaya", credit_score: 670, tenor_months: 12,
+  business_type: "Pertanian", province: "Jawa Timur", city: "Surabaya", tenor_months: 12,
   monthly_income_idr: 90000000, loan_amount_granted: 250000000, application_status: "BORDERLINE_HITL",
   pd_score: 0.1, decision_notes: "Moderate risk.",
 };
@@ -46,6 +46,17 @@ describe("SheetsRepository", () => {
     expect(snapshot.applications).toHaveLength(1);
     expect(snapshot.applications[0]).toMatchObject({ borrower_id: "BOR-0026", pd_score: 0.1, borderline_final_review_status: "" });
     expect(snapshot.errors).toEqual(["applications row 3 (BOR-0099): pd_score is not a number."]);
+  });
+
+  it("does not need credit_score, and ignores a leftover credit_score column", async () => {
+    expect(APPLICATION_COLUMNS).not.toContain("credit_score");
+    sheets.tabs.applications = [
+      [...APPLICATION_COLUMNS, "credit_score"],
+      [...appRow(anton), ""],
+    ];
+    const snapshot = await repo.listApplications();
+    expect(snapshot.errors).toEqual([]);
+    expect(snapshot.applications[0]).not.toHaveProperty("credit_score");
   });
 
   it("fails with a schema error when the master tab lacks Raven's columns", async () => {

@@ -9,7 +9,6 @@ export function makeApp(overrides: Partial<SheetApplication> = {}): SheetApplica
     business_type: "Pertanian",
     province: "Jawa Timur",
     city: "Surabaya",
-    credit_score: 670,
     tenor_months: 12,
     monthly_income_idr: 90000000,
     loan_amount_granted: 250000000,
