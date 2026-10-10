@@ -1,12 +1,13 @@
 # Product Requirement Document (PRD) — Project "Raven"
 **Product Name:** Credit Risk Analyst Reviewer Portal (Raven)  
-**Document Version:** 2.2 (Light theme)  
+**Document Version:** 2.3 (Inter typeface)  
 **Target Consumer:** Claude Code / Engineering Team  
 **Status:** Approved for Implementation  
 
 ### Change Log
 | Version | Change |
 | --- | --- |
+| 2.3 | Inter adopted as the design-system typeface for all UI text. |
 | 2.2 | Light theme replaces Dark Slate Mode; status indicators are filled pills (no border) in deeper shades so white text stays readable. Review drawer slides in/out; decision notifications are a floating snackbar that auto-dismisses after 5 seconds (paused while hovered) instead of a banner that pushes the list down. |
 | 2.1 | Real master-sheet columns (+ `city`); Raven-owned review log (`raven_reviews`) and user list (`raven_users`); Raven never edits loan terms; Google sign-in limited to pre-registered emails with `analyst` / `viewer` roles; multi-select Province/City filters; one-click Accept with confirmation, remarks mandatory only for Reject; Sulawesi Selatan and Sulawesi Tengah split; DTI and restructuring badge removed (no source columns). |
 | 2.0 | Refined development scope. |
@@ -300,6 +301,13 @@ Scenario: Viewer cannot decide
   - `PENDING` / `BORDERLINE`: `#B45309` (Amber 700)
   - `DECLINED` / `REJECT`: `#DC2626` (Red 600)
 - All text meets WCAG AA contrast (4.5:1); input outlines meet 3:1.
+
+### Typography
+- **Typeface:** Inter — used for all text in the app, including IDs and figures
+- **Category:** Sans Serif
+- **Colophon:** Rasmus Andersson (SIL Open Font License 1.1)
+- Self-hosted at build time (no runtime requests to Google Fonts); fallbacks: system-ui, Segoe UI, Roboto, sans-serif.
+- Numbers in tables (IDs, amounts, PD) use tabular figures so columns stay aligned.
 
 ### Interaction & Motion
 - **Review drawer:** slides in from the right when "Review"/"View" is clicked and slides out when closed or after a decision (~200 ms).
