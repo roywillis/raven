@@ -7,7 +7,7 @@
 ### Change Log
 | Version | Change |
 | --- | --- |
-| 2.2 | Light theme replaces Dark Slate Mode; status indicators are filled pills (no border) in deeper shades so white text stays readable. |
+| 2.2 | Light theme replaces Dark Slate Mode; status indicators are filled pills (no border) in deeper shades so white text stays readable. Review drawer slides in/out; decision notifications are a floating snackbar that auto-dismisses after 5 seconds (paused while hovered) instead of a banner that pushes the list down. |
 | 2.1 | Real master-sheet columns (+ `city`); Raven-owned review log (`raven_reviews`) and user list (`raven_users`); Raven never edits loan terms; Google sign-in limited to pre-registered emails with `analyst` / `viewer` roles; multi-select Province/City filters; one-click Accept with confirmation, remarks mandatory only for Reject; Sulawesi Selatan and Sulawesi Tengah split; DTI and restructuring badge removed (no source columns). |
 | 2.0 | Refined development scope. |
 
@@ -300,6 +300,11 @@ Scenario: Viewer cannot decide
   - `PENDING` / `BORDERLINE`: `#B45309` (Amber 700)
   - `DECLINED` / `REJECT`: `#DC2626` (Red 600)
 - All text meets WCAG AA contrast (4.5:1); input outlines meet 3:1.
+
+### Interaction & Motion
+- **Review drawer:** slides in from the right when "Review"/"View" is clicked and slides out when closed or after a decision (~200 ms).
+- **Decision notifications:** a snackbar floats at the bottom centre over the page (it never pushes the list down) and dismisses itself after **5 seconds**; hovering or focusing it pauses the countdown, and it can be closed manually.
+- Animations are disabled when the user's system requests reduced motion.
 
 ### Performance & Security
 - **Render Latency:** Filtering or tab switching must complete in $< 300\text{ ms}$.
