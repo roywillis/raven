@@ -1,12 +1,13 @@
 # Product Requirement Document (PRD) — Project "Raven"
 **Product Name:** Credit Risk Analyst Reviewer Portal (Raven)  
-**Document Version:** 2.1 (Data model, auth and decision-flow decisions)  
+**Document Version:** 2.2 (Light theme)  
 **Target Consumer:** Claude Code / Engineering Team  
 **Status:** Approved for Implementation  
 
 ### Change Log
 | Version | Change |
 | --- | --- |
+| 2.2 | Light theme replaces Dark Slate Mode; status indicators are filled pills (no border) in deeper shades so white text stays readable. |
 | 2.1 | Real master-sheet columns (+ `city`); Raven-owned review log (`raven_reviews`) and user list (`raven_users`); Raven never edits loan terms; Google sign-in limited to pre-registered emails with `analyst` / `viewer` roles; multi-select Province/City filters; one-click Accept with confirmation, remarks mandatory only for Reject; Sulawesi Selatan and Sulawesi Tengah split; DTI and restructuring badge removed (no source columns). |
 | 2.0 | Refined development scope. |
 
@@ -56,7 +57,7 @@ The dashboard intercepts borderline loan applications—specifically those evalu
 
 ```
 +-----------------------------------------------------------------------------------+
-|  RAVEN REVIEWER PORTAL (Dark Slate Mode: #0F172A)          Analyst Name [Sign out] |
+|  RAVEN REVIEWER PORTAL (Light Mode: #F8FAFC)               Analyst Name [Sign out] |
 |                                                                                   |
 |  [ TAB 1: INCOMING APPLICATIONS (3) ]   |   [ TAB 2: HISTORICAL APPLICATIONS ]    |
 |  ==============================================================================   |
@@ -286,17 +287,19 @@ Scenario: Viewer cannot decide
 
 ## 8. Non-Functional Requirements (NFRs) & UI Styling
 
-### Theme & Palette Constants (Dark Slate Mode)
-- **Canvas Background:** `#0F172A` (Slate 900)
-- **Container Cards:** `#1E293B` (Slate 800)
-- **Border Strokes:** `#334155` (Slate 700)
-- **Primary Text:** `#F8FAFC` (Slate 50)
-- **Muted Text:** `#94A3B8` (Slate 400)
-- **Accent Coral (n8n Brand):** `#FF6D5A`
-- **Status Indicators:**
-  - `APPROVED` / `ACCEPT`: `#10B981` (Emerald 500)
-  - `PENDING` / `BORDERLINE`: `#F59E0B` (Amber 500)
-  - `DECLINED` / `REJECT`: `#EF4444` (Red 500)
+### Theme & Palette Constants (Light Mode)
+- **Canvas Background:** `#F8FAFC` (Slate 50)
+- **Container Cards:** `#FFFFFF`
+- **Border Strokes:** `#E2E8F0` (Slate 200); input and button outlines `#8391A4`
+- **Primary Text:** `#0F172A` (Slate 900)
+- **Muted Text:** `#64748B` (Slate 500)
+- **Accent Coral (n8n Brand):** `#FF6D5A` for fills and tab underlines; `#C2402B` for coral text (readable on white)
+- **Focus Outline:** `#334155` (Slate 700), neutral so a focused field never looks like an error
+- **Status Indicators:** filled pills with white text and no border:
+  - `APPROVED` / `ACCEPT`: `#047857` (Emerald 700)
+  - `PENDING` / `BORDERLINE`: `#B45309` (Amber 700)
+  - `DECLINED` / `REJECT`: `#DC2626` (Red 600)
+- All text meets WCAG AA contrast (4.5:1); input outlines meet 3:1.
 
 ### Performance & Security
 - **Render Latency:** Filtering or tab switching must complete in $< 300\text{ ms}$.
