@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { REJECT_REMARKS_ERROR, REMARKS_MAX_LENGTH, REMARKS_MIN_LENGTH } from "@/domain/review";
 import type { ApplicationView, DecisionAction } from "@/domain/types";
 import { formatRupiah } from "./format";
@@ -15,17 +15,37 @@ interface ReviewDrawerProps {
 
 type Mode = "view" | "confirm-accept" | "reject";
 
+/** Matches the slide-out animation in globals.css. */
+const CLOSE_ANIMATION_MS = 200;
+
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export function ReviewDrawer({ application: app, canDecide, onClose, onDecided }: ReviewDrawerProps) {
   const [mode, setMode] = useState<Mode>("view");
   const [remarks, setRemarks] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  /** Plays the slide-out animation, then runs `then` (which unmounts the drawer). */
+  const animateOut = useCallback(
+    (then: () => void) => {
+      if (closing) return;
+      setClosing(true);
+      window.setTimeout(then, prefersReducedMotion() ? 0 : CLOSE_ANIMATION_MS);
+    },
+    [closing],
+  );
+
+  const close = useCallback(() => {
+    if (!submitting) animateOut(onClose);
+  }, [animateOut, onClose, submitting]);
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !submitting && onClose();
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && close();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, submitting]);
+  }, [close]);
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -48,16 +68,15 @@ export function ReviewDrawer({ application: app, canDecide, onClose, onDecided }
       const body = (await response.json().catch(() => ({}))) as { error?: string; sync_pending?: boolean };
       if (response.status === 201) {
         const verb = action === "ACCEPT" ? "approved" : "rejected";
-        onDecided(
-          body.sync_pending
-            ? `${app.borrower_id} ${verb}. The decision is saved; the master sheet will be updated on re-sync.`
-            : `${app.borrower_id} ${verb}.`,
-          body.sync_pending ? "warning" : "success",
-        );
+        const done = body.sync_pending
+          ? `${app.borrower_id} ${verb}. The decision is saved; the master sheet will be updated on re-sync.`
+          : `${app.borrower_id} ${verb}.`;
+        animateOut(() => onDecided(done, body.sync_pending ? "warning" : "success"));
         return;
       }
       if (response.status === 409 || response.status === 404) {
-        onDecided(body.error ?? "This application is no longer pending.", "error");
+        const message = body.error ?? "This application is no longer pending.";
+        animateOut(() => onDecided(message, "error"));
         return;
       }
       setError(body.error ?? `Request failed (${response.status}).`);
@@ -69,13 +88,16 @@ export function ReviewDrawer({ application: app, canDecide, onClose, onDecided }
   }
 
   return (
-    <div className="drawer-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !submitting && onClose()}>
+    <div
+      className={closing ? "drawer-backdrop is-closing" : "drawer-backdrop"}
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
+    >
       <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
         <header className="drawer-header">
           <h2 id="drawer-title">
             {app.borrower_id} · {app.business_name}
           </h2>
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting} aria-label="Close">
+          <button type="button" className="btn btn-ghost" onClick={close} disabled={submitting} aria-label="Close">
             ✕
           </button>
         </header>

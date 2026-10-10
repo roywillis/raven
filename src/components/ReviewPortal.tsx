@@ -7,13 +7,13 @@ import type { ApplicationView, QueueView, UserRole } from "@/domain/types";
 import { HistoryTab } from "./HistoryTab";
 import { IncomingTab } from "./IncomingTab";
 import { ReviewDrawer } from "./ReviewDrawer";
+import { Toast, type Notice } from "./Toast";
 
 interface ReviewPortalProps {
   queue: QueueView;
   user: { email: string; name: string; role: UserRole };
 }
 
-type Notice = { message: string; tone: "success" | "warning" | "error" };
 
 export function ReviewPortal({ queue, user }: ReviewPortalProps) {
   const router = useRouter();
@@ -25,11 +25,12 @@ export function ReviewPortal({ queue, user }: ReviewPortalProps) {
   const syncPending = [...queue.accepted, ...queue.rejected].filter((row) => row.sync_pending).length;
 
   const refresh = () => startRefresh(() => router.refresh());
+  const notify = (next: Omit<Notice, "id">) => setNotice({ ...next, id: Date.now() });
 
   async function resync() {
     const response = await fetch("/api/admin/resync", { method: "POST" });
     const body = (await response.json().catch(() => ({}))) as { resynced?: string[]; failed?: unknown[]; error?: string };
-    setNotice(
+    notify(
       response.ok
         ? { message: `Re-synced ${body.resynced?.length ?? 0}; failed ${body.failed?.length ?? 0}.`, tone: body.failed?.length ? "warning" : "success" }
         : { message: body.error ?? "Re-sync failed.", tone: "error" },
@@ -54,14 +55,6 @@ export function ReviewPortal({ queue, user }: ReviewPortalProps) {
       </header>
 
       <main className="content">
-        {notice && (
-          <div className={`banner banner-${notice.tone}`} role="status">
-            <span>{notice.message}</span>
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => setNotice(null)} aria-label="Dismiss">
-              ✕
-            </button>
-          </div>
-        )}
         {queue.data_errors.length > 0 && (
           <details className="banner banner-warning">
             <summary>{queue.data_errors.length} data issue(s) in the sheet need attention</summary>
@@ -108,11 +101,13 @@ export function ReviewPortal({ queue, user }: ReviewPortalProps) {
           onClose={() => setSelected(null)}
           onDecided={(message, tone) => {
             setSelected(null);
-            setNotice({ message, tone });
+            notify({ message, tone });
             refresh();
           }}
         />
       )}
+
+      {notice && <Toast key={notice.id} notice={notice} onDismiss={() => setNotice(null)} />}
     </div>
   );
 }
